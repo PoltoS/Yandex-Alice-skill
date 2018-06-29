@@ -140,7 +140,6 @@ class User:
         self.state = state
         self.remote_id = remote_id
         self.session = {'ZBW_SESSID': session_1, 'ZWAYSession': session_2}
-        start_new_thread(self.update_devices, ())
 
     def auth(self):
         url = urllib.parse.urljoin(FIND_SERVER, '/zboxweb')
@@ -162,8 +161,9 @@ class User:
         print(url, self.session)
         return requests.get(url, cookies=self.session, allow_redirects=False)
 
-    def update_custom_device(self, cmd):
-        pass
+    def background_update_devices(self):
+        print("Running background_update_devices")
+        start_new_thread(self.update_devices, ())
 
     def send_request(self, cmd):
         if not self.session:
@@ -337,6 +337,7 @@ def main():
         sql_execute("UPDATE user_homes SET state=%s WHERE home_id=%s AND user_id='%s'" % (
             HOME_STATE_NEW, user.home_id, user.id))
         user.state = HOME_STATE_NEW
+        user.background_update_devices()
         return get_reply(TEXT_REGISTER_FAILED)
 
     if user.state == HOME_STATE_READY:
