@@ -11,7 +11,6 @@ import pymorphy2
 app = Flask(__name__, static_folder=None, template_folder=None)
 app.config.from_object(Configuration)
 
-
 db = pymysql.connect(MYSQL_SERVERNAME,
                      MYSQL_USERNAME,
                      MYSQL_PASSWORD,
@@ -65,14 +64,14 @@ commands = (
         'reply': 'Вы уверены, что хотите отвязать контроллер от Алисы?'
     },
     {
-        'voice_commands': ('Таки отвязать контроллер'),
+        'voice_commands': ('Таки отвязать контроллер',),
         'zway_command': 'unpair_house_do',
         'reply': 'Дом отвязан'
     },
     {
-        'voice_commands': ('Не отвязывать контроллер, я передумал'),
+        'voice_commands': ('Не отвязывать контроллер, я передумал',),
         'zway_command': 'unpair_house_cancel',
-        'reply': 'Хорошо, ичего не трогаю'
+        'reply': 'Хорошо, ничего не трогаю'
     },
     {
         'voice_commands': ('выбрать дом', 'выбери дом', 'переключить дом'),
@@ -80,20 +79,21 @@ commands = (
         'reply': 'Переключилась в дом %s'
     },
     {
-        'voice_commands': ('обнови список устройств', 'обновить список устройств', 'обнови устройства', 'обновить устройства'),
+        'voice_commands': (
+            'обнови список устройств', 'обновить список устройств', 'обнови устройства', 'обновить устройства'),
         'zway_command': 'update_devices_list',
         'reply': 'Готово'
     },
     {
-        'voice_commands': ('помощь'),
+        'voice_commands': ('помощь',),
         'zway_command': 'help',
         'reply': 'Для управления светом используй слова «Включи» или «Выключи» и имя устройства ровно так,'
-                  ' как оно названо в контроллере. Для управления замком используй команды «Открой» и «Закрой».'
-                  ' Для просмотра списка устройства скажи «Покажи список устройств».'
-                  ' Для отключения контроллера скажи «Отвязать дом»'
+                 ' как оно названо в контроллере. Для управления замком используй команды «Открой» и «Закрой».'
+                 ' Для просмотра списка устройства скажи «Покажи список устройств».'
+                 ' Для отключения контроллера скажи «Отвязать дом»'
     },
     {
-        'voice_commands': ('проверить выполнение'),
+        'voice_commands': ('проверить выполнение',),
         'zway_command': 'check_exc',
         'reply': 'Устройство %s добавлено. Ваш пользовательский индификатор %s. Индификатор устройства %s'
     }
@@ -256,6 +256,7 @@ def normal(s):
 reqs = {}
 
 
+# noinspection PyGlobalUndefined
 @app.route('/', methods=['POST'])
 def main():
     global version, session
@@ -277,9 +278,10 @@ def main():
     if not result:
         print('NEW USER %s' % user_id)
         sql_execute(
-            "INSERT INTO user_homes VALUES (default, '%s', 0, '', '', '', '', 'Дом', %d, NOW(), FALSE)" % (user_id, HOME_STATE_NEW))
+            "INSERT INTO user_homes VALUES (default, '%s', 0, '', '', '', '', 'Дом', %s, NOW(), FALSE)" % (
+                user_id, HOME_STATE_NEW))
         command = ''
-        result = { "state": HOME_STATE_NEW }
+        result = ((user_id, 0, '', '', '', '', 'Дом', HOME_STATE_NEW, False),)
 
     user = User(user_id, *(result[0]))
     print(result)
@@ -292,10 +294,10 @@ def main():
                     "hide": True
                 }
             ])
-        
+
         if normal(command) == normal(TEXT_REGISTER_NEW_SUPPORTED_CONTROLLERS_BUTTON):
             return get_reply(TEXT_REGISTER_NEW_SUPPORTED_CONTROLLERS)
-        
+
         try:
             remote_id = int(command)
         except ValueError:
@@ -363,7 +365,6 @@ def main():
         command = match_command['zway_command']
         reply = match_command['reply']
 
-        
         if command == 'help':
             return get_reply(reply)
 
@@ -378,14 +379,15 @@ def main():
                     "hide": True
                 }
             ])
-        
+
         if command == 'unpair_house_do':
-            sql_execute("UPDATE user_homes SET state=%s WHERE home_id=%s AND user_id='%s'" % (HOME_STATE_NEW, user.home_id, user.id))
+            sql_execute("UPDATE user_homes SET state=%s WHERE home_id=%s AND user_id='%s'" % (
+                HOME_STATE_NEW, user.home_id, user.id))
             return get_reply(reply)
-        
+
         if command == 'unpair_house_cancel':
             return get_reply(reply)
-        
+
         if command == 'update_devices_list':
             user.background_update_devices()
             return get_reply(reply)
@@ -394,7 +396,7 @@ def main():
             device = user.find_device(target)
             if not device:
                 return get_reply('Устройство %s не найдено' % target)
-            print("Device: %s" % (device))
+            print("Device: %s" % device)
             reqs[user.id] = CommandExecute(user.send_request, ('/%s/command/%s' % (device[0][0], command)))
             return get_reply(reply % target, buttons=[
                 {
@@ -410,6 +412,7 @@ def main():
                 return get_reply(TEXT_UNKNOWN_ERROR)
 
         return get_reply(TEXT_UNKNOWN_COMMAND)
-        
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1")

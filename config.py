@@ -25,9 +25,12 @@ TEXT_REGISTER_NEW = 'Контроллер умного дома ещё не по
 
 TEXT_REGISTER_NEW_SUPPORTED_CONTROLLERS_BUTTON = 'Список поддерживаемых контроллеров'
 
-TEXT_REGISTER_NEW_SUPPORTED_CONTROLLERS = 'Данный навык Алисы работает с контроллерами на базе Z-Way: Z-Wave.Me RaZberry и Hub, Popp Hub, Z-Way для Western Digital, Z-Way для Dune HD'
+TEXT_REGISTER_NEW_SUPPORTED_CONTROLLERS = 'Данный навык Алисы работает с контроллерами на базе Z-Way: Z-Wave.Me' \
+                                          ' RaZberry и Hub, Popp Hub, Z-Way для Western Digital, Z-Way для Dune HD'
 
-TEXT_REGISTER_INVALID_REMOTE_ID = 'Введите идентификатора удалённого доступа. Он имеет числовой формат и написан над формой логина при входе в личный кабинет контроллера.'
+TEXT_REGISTER_INVALID_REMOTE_ID = 'Введите идентификатора удалённого доступа.' \
+                                  ' Он имеет числовой формат и написан над формой логина при входе в личный кабинет ' \
+                                  'контроллера.'
 
 TEXT_REGISTER_USERNAME = 'Теперь введи имя пользователя. ' \
                          'Для ввода имени пользователя лучше воспользоваться клавиатурой.'
@@ -55,5 +58,4 @@ TEXT_UNKNOWN_ERROR = 'Что-то пошло не так.'
 class Configuration(object):
     SECRET_KEY = 'so_secret!'
     DEBUG = False
-    SESSION_COOKIE_HTTPONLY = False
     TEMPLATES_AUTO_RELOAD = True
