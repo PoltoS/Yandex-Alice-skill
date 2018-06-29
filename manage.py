@@ -24,24 +24,24 @@ analyzer = pymorphy2.MorphAnalyzer()
 
 commands = (
     {
-        'voice_commands': ('включи', 'включить', 'зажги'),
+        'voice_commands': ('включи', 'включить', 'зажги', 'зажечь'),
         'zway_command': 'on',
-        'replay': 'Включила %s'
+        'reply': 'Включила %s'
     },
     {
         'voice_commands': ('выключи', 'выключить', 'погаси', 'погасить'),
         'zway_command': 'off',
-        'replay': 'Выключила %s'
+        'reply': 'Выключила %s'
     },
     {
-        'voice_commands': ('открой', 'отопри', 'дверь мне запили'),
+        'voice_commands': ('открой', 'отопри', 'открыть', 'отпереть'),
         'zway_command': 'open',
-        'replay': 'Открыла %s'
+        'reply': 'Открыла %s'
     },
     {
-        'voice_commands': ('закрой', 'запри'),
+        'voice_commands': ('закрой', 'запри', 'закрыть', 'запереть'),
         'zway_command': 'close',
-        'replay': 'Закрыла %s'
+        'reply': 'Закрыла %s'
     },
     {
         'voice_commands': (
@@ -49,7 +49,7 @@ commands = (
             'устройства в доме', 'список устройств'
         ),
         'zway_command': 'list',
-        'replay': 'Вот список устройств, которые я знаю: %s'
+        'reply': 'Вот список устройств, которые я знаю: %s'
     },
     {
         'voice_commands': (
@@ -57,57 +57,55 @@ commands = (
             'горит ли', 'открыта ли', 'закрыта ли', 'заперта ли'
         ),
         'zway_command': 'get',
-        'replay': '%s %s'
-    },
-    {
-        'voice_commands': ('выбрать дом', 'выбери дом', 'переключить дом'),
-        'zway_command': 'unpair_house',
-        'replay': 'Дом отвязан'
+        'reply': '%s %s'
     },
     {
         'voice_commands': ('отвязать дом', 'отвяжи дом', 'отвязать контроллер', 'отвяжи контроллер'),
+        'zway_command': 'unpair_house',
+        'reply': 'Вы уверены, что хотите отвязать контроллер от Алисы?'
+    },
+    {
+        'voice_commands': ('Таки отвязать контроллер'),
+        'zway_command': 'unpair_house_do',
+        'reply': 'Дом отвязан'
+    },
+    {
+        'voice_commands': ('Не отвязывать контроллер, я передумал'),
+        'zway_command': 'unpair_house_cancel',
+        'reply': 'Хорошо, ичего не трогаю'
+    },
+    {
+        'voice_commands': ('выбрать дом', 'выбери дом', 'переключить дом'),
         'zway_command': 'switch_house',
-        'replay': 'Переключилась в дом %s'
+        'reply': 'Переключилась в дом %s'
     },
     {
-        'voice_commands': ('обнови список устройств', 'обновить список устройств'),
+        'voice_commands': ('обнови список устройств', 'обновить список устройств', 'обнови устройства', 'обновить устройства'),
         'zway_command': 'update_devices_list',
-        'replay': 'Готово'
+        'reply': 'Готово'
     },
     {
-        'voice_commands': ('помощь',),
+        'voice_commands': ('помощь'),
         'zway_command': 'help',
-        'replay': 'Для управления светом используй слова «Включи» или «Выключи» и имя устройства ровно так,'
+        'reply': 'Для управления светом используй слова «Включи» или «Выключи» и имя устройства ровно так,'
                   ' как оно названо в контроллере. Для управления замком используй команды «Открой» и «Закрой».'
                   ' Для просмотра списка устройства скажи «Покажи список устройств».'
                   ' Для отключения контроллера скажи «Отвязать дом»'
     },
     {
-        'voice_commands': ('пользовательские устройства',),
-        'zway_command': 'user_list',
-        'replay': 'Список устройств, подключенных вручную: '
-    },
-    {
-        'voice_commands': ('добавить устройство', 'добавить'),
-        'zway_command': 'add',
-        'replay': 'Устройство %s добавлено. Ваш пользовательский индификатор %s. Индификатор устройства %s'
-    },
-    {
-        'voice_commands': ('проверить выполнение',),
+        'voice_commands': ('проверить выполнение'),
         'zway_command': 'check_exc',
-        'replay': 'Устройство %s добавлено. Ваш пользовательский индификатор %s. Индификатор устройства %s'
-    },
+        'reply': 'Устройство %s добавлено. Ваш пользовательский индификатор %s. Индификатор устройства %s'
+    }
 )
 
 
 class CommandExecute(Thread):
-
     def __init__(self, func, args):
 
         self.func = func
         self.args = args
-        self.status = 0
-        self.result = None
+        self.status = COMMAND_EXECUTION_STATUS_NOT_YET
         self.exc = None
 
         super().__init__(target=self.run)
@@ -117,21 +115,20 @@ class CommandExecute(Thread):
         try:
             result = self.func(self.args)
             if json.loads(result)['code'] == 200:
-                self.result = 'Команда выполнена'
-                self.status = 1
+                self.status = COMMAND_EXECUTION_STATUS_SUCCESS
             else:
                 self.exc = result
-                self.status = 2
+                self.status = COMMAND_EXECUTION_STATUS_FAILURE
         except Exception as ex:
-            self.status = 2
             self.exc = ex
+            self.status = COMMAND_EXECUTION_STATUS_FAILURE
 
     def get_result(self):
-        if self.status == 1:
-            return self.result
-        if self.status == 2:
-            return self.exc
-        return 'Not ready yet'
+        if self.status == COMMAND_EXECUTION_STATUS_SUCCESS:
+            return 'Выполнена успешно'
+        if self.status == COMMAND_EXECUTION_STATUS_FAILURE:
+            return 'Ошибка выполнение'
+        return 'Ещё не выполнена'
 
 
 class User:
@@ -147,7 +144,7 @@ class User:
 
     def auth(self):
         url = urllib.parse.urljoin(FIND_SERVER, '/zboxweb')
-        resp = requests.post(url, data='act=login&login=%s/%s&pass=%s' % (self.remote_id, self.login, self.password),
+        resp = requests.post(url, data=u'act=login&login=%s/%s&pass=%s' % (self.remote_id, self.login, self.password),
                              allow_redirects=False, headers=headers)
         print('Auth....')
         cookies = resp.cookies.get_dict()
@@ -163,7 +160,7 @@ class User:
     def request(self, cmd):
         url = urllib.parse.urljoin(FIND_SERVER, '/ZAutomation/api/v1/devices' + cmd)
         print(url, self.session)
-        return requests.get(url, cookies=self.session)
+        return requests.get(url, cookies=self.session, allow_redirects=False)
 
     def update_custom_device(self, cmd):
         pass
@@ -270,6 +267,9 @@ def main():
     command = request.json['request']['command']
     original_command = request.json['request']['original_utterance']
 
+    if command == 'ping':
+        return get_reply('pong')
+
     result = sql_get(
         "SELECT home_id, remote_id, username, password, ZBW_SESSID, ZWAYSession, state, (update_time < NOW() +"
         " INTERVAL 10 MINUTE) AS outdated FROM user_homes WHERE user_id = '%s'" % user_id)
@@ -277,16 +277,29 @@ def main():
     if not result:
         print('NEW USER %s' % user_id)
         sql_execute(
-            "INSERT INTO user_homes VALUES (default, '%s', 0, '', '', '', '', 'Дом', 0, NOW(), FALSE)" % user_id)
-        return get_reply(TEXT_REGISTER_NEW)
+            "INSERT INTO user_homes VALUES (default, '%s', 0, '', '', '', '', 'Дом', %d, NOW(), FALSE)" % (user_id, HOME_STATE_NEW))
+        command = ''
+        result = { "state": HOME_STATE_NEW }
+
     user = User(user_id, *(result[0]))
     print(result)
 
     if user.state == HOME_STATE_NEW:
+        if not command:
+            return get_reply(TEXT_REGISTER_NEW, buttons=[
+                {
+                    "title": TEXT_REGISTER_NEW_SUPPORTED_CONTROLLERS_BUTTON,
+                    "hide": True
+                }
+            ])
+        
+        if normal(command) == normal(TEXT_REGISTER_NEW_SUPPORTED_CONTROLLERS_BUTTON):
+            return get_reply(TEXT_REGISTER_NEW_SUPPORTED_CONTROLLERS)
+        
         try:
             remote_id = int(command)
         except ValueError:
-            return get_reply('Только цифры! ')
+            return get_reply(TEXT_REGISTER_INVALID_REMOTE_ID)
         sql_execute("UPDATE user_homes SET remote_id='%s', state=%s WHERE home_id=%s AND user_id='%s'" % (
             remote_id, HOME_STATE_REMOTEID, user.home_id, user.id))
         user.remote_id = remote_id
@@ -327,14 +340,17 @@ def main():
         return get_reply(TEXT_REGISTER_FAILED)
 
     if user.state == HOME_STATE_READY:
-        print(command)
+        print("Command: %s" % command)
+
+        if not command:
+            return get_reply(TEXT_WELCOME)
 
         for cmd in commands:
             for c in cmd['voice_commands']:
-                c = normal(c)
-                if c in normal(command):
+                _c = normal(c)
+                if normal(command).startswith(_c):
                     match_command = cmd
-                    sl = len(c.split())
+                    sl = len(_c.split())
                     target = ' '.join(command.split()[sl:])
                     break
             else:
@@ -344,25 +360,42 @@ def main():
             return get_reply('Неизвестная команда')
 
         command = match_command['zway_command']
-        replay = match_command['replay']
+        reply = match_command['reply']
 
-        if not command:
-            return get_reply(TEXT_WELCOME)
         
         if command == 'help':
-            return get_reply(replay)
+            return get_reply(reply)
 
         if command == 'list':
             lst = [device[1] for device in user.get_devices()]
-            return get_reply(replay % (', '.join(lst)))
+            return get_reply(reply % (', '.join(lst)))
+
+        if command == 'unpair_house':
+            return get_reply(reply, buttons=[
+                {
+                    "title": "Таки отвязать контроллер",
+                    "hide": True
+                }
+            ])
+        
+        if command == 'unpair_house_do':
+            sql_execute("UPDATE user_homes SET state=%s WHERE home_id=%s AND user_id='%s'" % (HOME_STATE_NEW, user.home_id, user.id))
+            return get_reply(reply)
+        
+        if command == 'unpair_house_cancel':
+            return get_reply(reply)
+        
+        if command == 'update_devices_list':
+            user.background_update_devices()
+            return get_reply(reply)
 
         if command in ['on', 'off', 'open', 'close']:
             device = user.find_device(target)
-            print(device)
             if not device:
                 return get_reply('Устройство %s не найдено' % target)
+            print("Device: %s" % (device))
             reqs[user.id] = CommandExecute(user.send_request, ('/%s/command/%s' % (device[0][0], command)))
-            return get_reply(replay % target, buttons=[
+            return get_reply(reply % target, buttons=[
                 {
                     "title": "Проверить выполнение",
                     "hide": True
@@ -372,7 +405,10 @@ def main():
         if command == 'check_exc':
             if reqs.get(user.id):
                 return get_reply(str(reqs[user.id].get_result()))
+            else:
+                return get_reply(TEXT_UNKNOWN_ERROR)
 
-
+        return get_reply(TEXT_UNKNOWN_COMMAND)
+        
 if __name__ == "__main__":
     app.run(host="127.0.0.1")
